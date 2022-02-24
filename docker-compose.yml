@@ -1,0 +1,106 @@
+version: '3'
+
+networks:
+  symfony:
+
+services:
+  site:
+    build:
+      context: ./dockerfiles
+      dockerfile: nginx.dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - .:/var/www/html:delegated
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - symfony
+
+  mysql:
+    image: mariadb:10.6
+    container_name: mysql
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "33061:3306"
+    environment:
+      MYSQL_DATABASE: symfony
+      MYSQL_USER: cristian
+      MYSQL_PASSWORD: boyser90
+      MYSQL_ROOT_PASSWORD: boyser90
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - symfony
+
+  php:
+    build:
+      context: ./dockerfiles
+      dockerfile: php.dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: php
+    volumes:
+      - .:/var/www/html:delegated
+    networks:
+      - symfony
+
+  composer:
+    build:
+      context: ./dockerfiles
+      dockerfile: composer.dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: composer
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - php
+    user: cristian
+    entrypoint: ['composer', '--ignore-platform-reqs']
+    networks:
+      - symfony
+
+  npm:
+    image: node:13.7
+    container_name: npm
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    working_dir: /var/www/html
+    entrypoint: ['npm']
+    networks:
+      - symfony
+
+  symfony:
+    build:
+      context: ./dockerfiles
+      dockerfile: php.dockerfile
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    container_name: symfony
+    volumes:
+      - .:/var/www/html:delegated
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    entrypoint: ["php", "./bin/console"]
+    networks:
+      - symfony
+
+volumes:
+  db-data:

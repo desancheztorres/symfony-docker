@@ -1,0 +1,89 @@
+version: '3'
+
+networks:
+   symfony:
+
+services:
+  site:
+    build:
+      context: ./dockerfiles
+      dockerfile: nginx.root.dockerfile
+    container_name: nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - .:/var/www/html:delegated
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - symfony
+
+  database:
+    image: mariadb:10.6
+    container_name: mysql
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - ./database:/var/lib/mysql
+    ports:
+      - "33061:3306"
+    environment:
+      MYSQL_DATABASE: homestead
+      MYSQL_USER: homestead
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - symfony
+
+  php:
+    build:
+      context: ./dockerfiles
+      dockerfile: php.root.dockerfile
+    container_name: php
+    volumes:
+      - .:/var/www/html:delegated
+    networks:
+      - symfony
+
+  composer:
+    image: composer:2
+    container_name: composer
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - php
+    user: root
+    entrypoint: ['composer', '--ignore-platform-reqs']
+    networks:
+      - symfony
+
+  npm:
+    image: node:13.7
+    container_name: npm
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    working_dir: /var/www/html
+    entrypoint: ['npm']
+    networks:
+      - symfony
+
+  symfony:
+    build:
+      context: ./dockerfiles
+      dockerfile: php.root.dockerfile
+    container_name: artisan
+    volumes:
+      - .:/var/www/html:delegated
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    entrypoint: /bin/console
+    networks:
+      - symfony
